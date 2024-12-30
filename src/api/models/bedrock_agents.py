@@ -138,31 +138,44 @@ class BedrockAgents(BedrockModel):
         
 
     def get_agents(self):
+        bedrock_ag = boto3.client(
+            service_name="bedrock-agent",
+            region_name=AWS_REGION,
+            config=config,
+        )
+        # List Agents
+        response = bedrock_ag.list_agents(maxResults=100)
+        # Prepare agent for display
+        print(response)
+        for agent in response['agentSummaries']:
+            if (agent['agentStatus'] != 'PREPARED'):
+                continue
+            name = f"{AGENT_PREFIX}{agent['agentName']}"
+            agentId = agent['agentId']
 
-        agent_id = "UFBY1IRUGH"  
-        alias_id = "I6F6CJETVE"          
+            # Get all aliases for this agent
+            response_alias = bedrock_ag.list_agent_aliases(agentId=agentId, maxResults=100)
 
-        name = f"{AGENT_PREFIX}hardcoded-agent-{alias_id}"  
-        
+            for alias in response_alias.get('agentAliasSummaries', []):
+                # Include only aliases that are in the 'PREPARED' state
+                if alias['agentAliasStatus'] == 'PREPARED':
+                    alias_id = alias['agentAliasId']
+                    version = alias.get('versionDescription', 'Unknown Version')
+                    combined_id = f"{name}-alias-{alias_id}-version-{version}"
 
-        val = {
-            "system": False,      # Supports system prompts for context setting
-            "multimodal": True,   # Capable of processing both text and images
-            "tool_call": True,    # Enables tool calls
-            "stream_tool_call": False,  # Disable streaming tool calls for this agent
-            "agent_id": agent_id,
-            "alias_id": alias_id
-        }
+                    logger.info(f"Agent: {name}, AliasId: {alias_id}, Version: {version}")
 
-        self._supported_models[name] = val
-
-        logger.info(f"Hardcoded Bedrock Agent:")
-        logger.info(f"Agent Name: {name}")
-        logger.info(f"Agent ID: {agent_id}")
-        logger.info(f"Alias/Version: {alias_id}")
-        
-    # Add the hardcoded agent to the list of supported models
-    # self._supported_models[name] = val
+                    val = {
+                        "system": False,  # Supports system prompts for context setting
+                        "multimodal": True,  # Capable of processing both text and images
+                        "tool_call": True,
+                        "stream_tool_call": False,
+                        "agent_id": agentId,
+                        "alias_id": alias_id,
+                        "version": version,  # Added version information
+                    }
+                    self._supported_models[combined_id] = val
+    # def get_agents(self):
     #     bedrock_ag = boto3.client(
     #         service_name="bedrock-agent",
     #         region_name=AWS_REGION,
@@ -181,21 +194,21 @@ class BedrockAgents(BedrockModel):
     #         agentId = agent['agentId']
 
     #         aliasId = self.get_latest_agent_alias(bedrock_ag, agentId)
-    #         name = f"{AGENT_PREFIX}{agent['agentName']}{aliasId}"
+    #         name = f"{AGENT_PREFIX}{agent['agentName']}"
     #         logger.info(f"Bedrock Aliasid {aliasId}")
-    #         logger.info(f"Bedrock Agent Name {name}")
+
     #         if (aliasId is None):
     #             continue
 
-            # val = {
-            #     "system": False,      # Supports system prompts for context setting
-            #     "multimodal": True,  # Capable of processing both text and images
-            #     "tool_call": True,
-            #     "stream_tool_call": False,
-            #     "agent_id": agentId,
-            #     "alias_id": aliasId
-            # }
-            # self._supported_models[name] = val
+    #         val = {
+    #             "system": False,      # Supports system prompts for context setting
+    #             "multimodal": True,  # Capable of processing both text and images
+    #             "tool_call": True,
+    #             "stream_tool_call": False,
+    #             "agent_id": agentId,
+    #             "alias_id": aliasId
+    #         }
+    #         self._supported_models[name] = val
     
     def get_models(self):
         
@@ -635,26 +648,82 @@ bedrock_format_messages=[
         return response
     
     # This function invokes knowledgebase
+    # def _invoke_agent(self, chat_request: ChatRequest, stream=False):
+    #     """Common logic for invoke agent """
+    #     if DEBUG:
+    #         logger.info("BedrockAgents._invoke_agent: Raw request: " + chat_request.model_dump_json())
+
+    #     # convert OpenAI chat request to Bedrock SDK request
+    #     args = self._parse_request(chat_request)
+        
+
+    #     if DEBUG:
+    #         logger.info("Bedrock request: " + json.dumps(str(args)))
+
+    #     model = self._supported_models[chat_request.model]
+    #     #logger.info(f"model: {model}")
+    #     logger.info(f"args: {args}")
+        
+    #     ################
+
+    #     try:
+    #         query = args['messages'][0]['content'][0]['text']
+    #         messages = args['messages']
+    #         query = messages[len(messages)-1]['content'][0]['text']
+    #         query = f"My customer id is 1. {query}"
+    #         logger.info(f"Query: {query}")
+
+    #         # Step 1 - Retrieve Context
+    #         request_params = {
+    #             'agentId': model['agent_id'],
+    #             'agentAliasId': model['alias_id'],
+    #             'sessionId': 'unique-session-id',  # Generate a unique session ID
+    #             'inputText': query
+    #         }
+                
+    #         # Make the retrieve request
+    #         # Invoke the agent
+    #         response = bedrock_agent.invoke_agent(**request_params)
+    #         return response
+    #         #logger.info(f'agent response: {response} ----\n\n')
+
+    #         _event_stream = response["completion"]
+            
+    #         chunk_count = 1
+    #         for event in _event_stream:
+    #             #print(f'\n\nChunk {chunk_count}: {event}')
+    #             chunk_count += 1
+    #             if "chunk" in event:
+    #                 _data = event["chunk"]["bytes"].decode("utf8")
+    #                 _agent_answer = self._make_fully_cited_answer(
+    #                     _data, event, False, 0)
+                    
+            
+    #         #print(f'_agent_answer: {_agent_answer}')
+            
+    #         # Process the response
+    #         #completion = response.get('completion', '')
+    #         return response
+
+    #     except Exception as e:
+    #         print(f"Error retrieving from knowledge base: {str(e)}")
+    #         raise
+
+    #     ###############
+    #     return response
+
+
     def _invoke_agent(self, chat_request: ChatRequest, stream=False):
         """Common logic for invoke agent """
         if DEBUG:
             logger.info("BedrockAgents._invoke_agent: Raw request: " + chat_request.model_dump_json())
-
-
-        agent_id = "I6F6CJETVE"
-        agent_alias_id = "6"  # Version 6
         # convert OpenAI chat request to Bedrock SDK request
         args = self._parse_request(chat_request)
-        
-
         if DEBUG:
             logger.info("Bedrock request: " + json.dumps(str(args)))
 
         model = self._supported_models[chat_request.model]
-        #logger.info(f"model: {model}")
-        logger.info(f"args: {args}")
-        
-        ################
+        logger.info(f"Selected Agent Model Config: {model}")
 
         try:
             query = args['messages'][0]['content'][0]['text']
@@ -663,45 +732,26 @@ bedrock_format_messages=[
             query = f"My customer id is 1. {query}"
             logger.info(f"Query: {query}")
 
-            # Step 1 - Retrieve Context
+            # Prepare Agent Request
             request_params = {
                 'agentId': model['agent_id'],
-                'agentAliasId': model['alias_id'],
-                'sessionId': 'unique-session-id',  # Generate a unique session ID
+                'agentAliasId': model['alias_id'], 
+                'sessionId': 'unique-session-id',  
                 'inputText': query
             }
-                
-            # Make the retrieve request
-            # Invoke the agent
-            response = bedrock_agent.invoke_agent(**request_params)
-            return response
-            #logger.info(f'agent response: {response} ----\n\n')
 
-            _event_stream = response["completion"]
-            
-            chunk_count = 1
-            for event in _event_stream:
-                #print(f'\n\nChunk {chunk_count}: {event}')
-                chunk_count += 1
-                if "chunk" in event:
-                    _data = event["chunk"]["bytes"].decode("utf8")
-                    _agent_answer = self._make_fully_cited_answer(
-                        _data, event, False, 0)
-                    
-            
-            #print(f'_agent_answer: {_agent_answer}')
-            
-            # Process the response
-            #completion = response.get('completion', '')
+            # Make the agent invoke request
+            response = bedrock_agent.invoke_agent(**request_params)
+
+            if DEBUG:
+                logger.info(f'Agent response: {response}')
+
             return response
 
         except Exception as e:
-            print(f"Error retrieving from knowledge base: {str(e)}")
-            raise
-
-        ###############
-        return response
-
+            print(f"Error invoking agent: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Agent invoke error: {str(e)}")
+    
     def _make_fully_cited_answer(
         self, orig_agent_answer, event, enable_trace=False, trace_level="none"):
         _citations = event.get("chunk", {}).get("attribution", {}).get("citations", [])
@@ -774,17 +824,60 @@ bedrock_format_messages=[
 
         return _fully_cited_answer
 
+    # def _parse_request(self, chat_request: ChatRequest) -> dict:
+    #     """Create default converse request body.
+
+    #     Also perform validations to tool call etc.
+
+    #     Ref: https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_Converse.html
+    #     """
+
+    #     messages = self._parse_messages(chat_request)
+    #     system_prompts = self._parse_system_prompts(chat_request)
+
+    #     # Base inference parameters.
+    #     inference_config = {
+    #         "temperature": chat_request.temperature,
+    #         "maxTokens": chat_request.max_tokens,
+    #         "topP": chat_request.top_p,
+    #     }
+
+    #     args = {
+    #         "modelId": chat_request.model,
+    #         "messages": messages,
+    #         "system": system_prompts,
+    #         "inferenceConfig": inference_config,
+    #     }
+    #     # add tool config
+    #     if chat_request.tools:
+    #         args["toolConfig"] = {
+    #             "tools": [
+    #                 self._convert_tool_spec(t.function) for t in chat_request.tools
+    #             ]
+    #         }
+
+    #         if chat_request.tool_choice and not chat_request.model.startswith("meta.llama3-1-"):
+    #             if isinstance(chat_request.tool_choice, str):
+    #                 # auto (default) is mapped to {"auto" : {}}
+    #                 # required is mapped to {"any" : {}}
+    #                 if chat_request.tool_choice == "required":
+    #                     args["toolConfig"]["toolChoice"] = {"any": {}}
+    #                 else:
+    #                     args["toolConfig"]["toolChoice"] = {"auto": {}}
+    #             else:
+    #                 # Specific tool to use
+    #                 assert "function" in chat_request.tool_choice
+    #                 args["toolConfig"]["toolChoice"] = {
+    #                     "tool": {"name": chat_request.tool_choice["function"].get("name", "")}}
+    #     return args
+
     def _parse_request(self, chat_request: ChatRequest) -> dict:
         """Create default converse request body.
-
         Also perform validations to tool call etc.
-
         Ref: https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_Converse.html
         """
-
         messages = self._parse_messages(chat_request)
         system_prompts = self._parse_system_prompts(chat_request)
-
         # Base inference parameters.
         inference_config = {
             "temperature": chat_request.temperature,
@@ -792,33 +885,30 @@ bedrock_format_messages=[
             "topP": chat_request.top_p,
         }
 
+        # Optional version and alias selection
+        model_data = self._supported_models.get(chat_request.model)
+        if not model_data:
+            raise HTTPException(status_code=400, detail=f"Model {chat_request.model} not found.")
+
+        # Extract agent_id and alias_id from model mapping
+        agent_id = model_data.get("agent_id")
+        alias_id = model_data.get("alias_id")
+        version = model_data.get("version", "Unknown Version")
+
+        logger.info(f"Using Agent ID: {agent_id}, Alias ID: {alias_id}, Version: {version}")
+
         args = {
             "modelId": chat_request.model,
             "messages": messages,
             "system": system_prompts,
             "inferenceConfig": inference_config,
         }
-        # add tool config
-        if chat_request.tools:
-            args["toolConfig"] = {
-                "tools": [
-                    self._convert_tool_spec(t.function) for t in chat_request.tools
-                ]
-            }
 
-            if chat_request.tool_choice and not chat_request.model.startswith("meta.llama3-1-"):
-                if isinstance(chat_request.tool_choice, str):
-                    # auto (default) is mapped to {"auto" : {}}
-                    # required is mapped to {"any" : {}}
-                    if chat_request.tool_choice == "required":
-                        args["toolConfig"]["toolChoice"] = {"any": {}}
-                    else:
-                        args["toolConfig"]["toolChoice"] = {"auto": {}}
-                else:
-                    # Specific tool to use
-                    assert "function" in chat_request.tool_choice
-                    args["toolConfig"]["toolChoice"] = {
-                        "tool": {"name": chat_request.tool_choice["function"].get("name", "")}}
+        # Pass additional parameters where applicable
+        if agent_id and alias_id:
+            args['agentId'] = agent_id
+            args['agentAliasId'] = alias_id
+        
         return args
 
     def _create_response(
