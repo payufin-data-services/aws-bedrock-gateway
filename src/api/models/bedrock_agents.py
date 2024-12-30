@@ -156,6 +156,7 @@ class BedrockAgents(BedrockModel):
             agentId = agent['agentId']
 
             aliasId = self.get_latest_agent_alias(bedrock_ag, agentId)
+            name = f"{AGENT_PREFIX}{agent['agentName']}{aliasId}"
             if (aliasId is None):
                 continue
 
