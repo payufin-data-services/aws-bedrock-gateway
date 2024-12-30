@@ -138,39 +138,64 @@ class BedrockAgents(BedrockModel):
         
 
     def get_agents(self):
-        bedrock_ag = boto3.client(
-            service_name="bedrock-agent",
-            region_name=AWS_REGION,
-            config=config,
-        )
-        # List Agents
-        response = bedrock_ag.list_agents(maxResults=100)
 
-        # Prepare agent for display
-        for agent in response['agentSummaries']:
+        agent_id = "UFBY1IRUGH"  
+        alias_id = "I6F6CJETVE"          
+
+        name = f"{AGENT_PREFIX}hardcoded-agent-{alias_id}"  
+        
+
+        val = {
+            "system": False,      # Supports system prompts for context setting
+            "multimodal": True,   # Capable of processing both text and images
+            "tool_call": True,    # Enables tool calls
+            "stream_tool_call": False,  # Disable streaming tool calls for this agent
+            "agent_id": agent_id,
+            "alias_id": alias_id
+        }
+
+        self._supported_models[name] = val
+
+        logger.info(f"Hardcoded Bedrock Agent:")
+        logger.info(f"Agent Name: {name}")
+        logger.info(f"Agent ID: {agent_id}")
+        logger.info(f"Alias/Version: {alias_id}")
+        
+    # Add the hardcoded agent to the list of supported models
+    # self._supported_models[name] = val
+    #     bedrock_ag = boto3.client(
+    #         service_name="bedrock-agent",
+    #         region_name=AWS_REGION,
+    #         config=config,
+    #     )
+    #     # List Agents
+    #     response = bedrock_ag.list_agents(maxResults=100)
+
+    #     # Prepare agent for display
+    #     for agent in response['agentSummaries']:
            
-            if (agent['agentStatus'] != 'PREPARED'):
-                continue
+    #         if (agent['agentStatus'] != 'PREPARED'):
+    #             continue
 
-            name = f"{AGENT_PREFIX}{agent['agentName']}"
-            agentId = agent['agentId']
+    #         name = f"{AGENT_PREFIX}{agent['agentName']}"
+    #         agentId = agent['agentId']
 
-            aliasId = self.get_latest_agent_alias(bedrock_ag, agentId)
-            name = f"{AGENT_PREFIX}{agent['agentName']}{aliasId}"
-            logger.info(f"Bedrock Aliasid {aliasId}")
-            logger.info(f"Bedrock Agent Name {name}")
-            if (aliasId is None):
-                continue
+    #         aliasId = self.get_latest_agent_alias(bedrock_ag, agentId)
+    #         name = f"{AGENT_PREFIX}{agent['agentName']}{aliasId}"
+    #         logger.info(f"Bedrock Aliasid {aliasId}")
+    #         logger.info(f"Bedrock Agent Name {name}")
+    #         if (aliasId is None):
+    #             continue
 
-            val = {
-                "system": False,      # Supports system prompts for context setting
-                "multimodal": True,  # Capable of processing both text and images
-                "tool_call": True,
-                "stream_tool_call": False,
-                "agent_id": agentId,
-                "alias_id": aliasId
-            }
-            self._supported_models[name] = val
+            # val = {
+            #     "system": False,      # Supports system prompts for context setting
+            #     "multimodal": True,  # Capable of processing both text and images
+            #     "tool_call": True,
+            #     "stream_tool_call": False,
+            #     "agent_id": agentId,
+            #     "alias_id": aliasId
+            # }
+            # self._supported_models[name] = val
     
     def get_models(self):
         
@@ -615,6 +640,9 @@ bedrock_format_messages=[
         if DEBUG:
             logger.info("BedrockAgents._invoke_agent: Raw request: " + chat_request.model_dump_json())
 
+
+        agent_id = "I6F6CJETVE"
+        agent_alias_id = "6"  # Version 6
         # convert OpenAI chat request to Bedrock SDK request
         args = self._parse_request(chat_request)
         
