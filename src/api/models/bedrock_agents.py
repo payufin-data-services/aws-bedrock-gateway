@@ -852,9 +852,9 @@ bedrock_format_messages=[
             "system": system_prompts,
             "inferenceConfig": inference_config,
         }
-        model_data = self._supported_models.get(chat_request.model, {})
-        if "alias_id" in model_data:
-            args["aliasId"] = model_data["alias_id"]
+        # model_data = self._supported_models.get(chat_request.model, {})
+        # if "alias_id" in model_data:
+        #     args["aliasId"] = model_data["alias_id"]
         # add tool config
         if chat_request.tools:
             args["toolConfig"] = {
