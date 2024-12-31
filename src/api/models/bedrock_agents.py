@@ -642,111 +642,119 @@ bedrock_format_messages=[
         ###############
         return response
     
-    # This function invokes knowledgebase
-    def _invoke_agent(self, chat_request: ChatRequest, stream=False):
-        """Common logic for invoke agent """
-        if DEBUG:
-            logger.info("BedrockAgents._invoke_agent: Raw request: " + chat_request.model_dump_json())
-
-        # convert OpenAI chat request to Bedrock SDK request
-        args = self._parse_request(chat_request)
-        
-
-        if DEBUG:
-            logger.info("Bedrock request: " + json.dumps(str(args)))
-
-        model = self._supported_models[chat_request.model]
-        #logger.info(f"model: {model}")
-        logger.info(f"args: {args}")
-        
-        ################
-
-        try:
-            query = args['messages'][0]['content'][0]['text']
-            messages = args['messages']
-            query = messages[len(messages)-1]['content'][0]['text']
-            # query = f"{query}"
-            logger.info(f"Query: {query}")
-
-            # Step 1 - Retrieve Context
-            request_params = {
-                'agentId': model['agent_id'],
-                'agentAliasId': model['alias_id'],
-                'sessionId': 'unique-session-id',  # Generate a unique session ID
-                'inputText': query
-            }
-                
-            # Make the retrieve request
-            # Invoke the agent
-            response = bedrock_agent.invoke_agent(**request_params)
-            logger.info(f'Agent response: {response}')
-            return response
-            #logger.info(f'agent response: {response} ----\n\n')
-
-            _event_stream = response["completion"]
-            
-            chunk_count = 1
-            for event in _event_stream:
-                #print(f'\n\nChunk {chunk_count}: {event}')
-                chunk_count += 1
-                if "chunk" in event:
-                    _data = event["chunk"]["bytes"].decode("utf8")
-                    _agent_answer = self._make_fully_cited_answer(
-                        _data, event, False, 0)
-                    
-            
-            #print(f'_agent_answer: {_agent_answer}')
-            
-            # Process the response
-            #completion = response.get('completion', '')
-            return response
-
-        except Exception as e:
-            print(f"Error retrieving from agents: {str(e)}")
-            raise
-
-        ###############
-        return response
-
-
+    # # This function invokes knowledgebase
     # def _invoke_agent(self, chat_request: ChatRequest, stream=False):
     #     """Common logic for invoke agent """
     #     if DEBUG:
     #         logger.info("BedrockAgents._invoke_agent: Raw request: " + chat_request.model_dump_json())
+
     #     # convert OpenAI chat request to Bedrock SDK request
     #     args = self._parse_request(chat_request)
+        
+
     #     if DEBUG:
     #         logger.info("Bedrock request: " + json.dumps(str(args)))
 
     #     model = self._supported_models[chat_request.model]
-    #     logger.info(f"Selected Agent Model Config: {model}")
+    #     #logger.info(f"model: {model}")
+    #     logger.info(f"args: {args}")
+        
+    #     ################
 
     #     try:
     #         query = args['messages'][0]['content'][0]['text']
     #         messages = args['messages']
     #         query = messages[len(messages)-1]['content'][0]['text']
-    #         query = f"{query}"
+    #         # query = f"{query}"
     #         logger.info(f"Query: {query}")
 
-    #         # Prepare Agent Request
+    #         # Step 1 - Retrieve Context
     #         request_params = {
     #             'agentId': model['agent_id'],
-    #             'agentAliasId': model['alias_id'], 
-    #             'sessionId': 'unique-session-id',  
+    #             'agentAliasId': model['alias_id'],
+    #             'sessionId': 'unique-session-id',  # Generate a unique session ID
     #             'inputText': query
     #         }
-
-    #         # Make the agent invoke request
+                
+    #         # Make the retrieve request
+    #         # Invoke the agent
     #         response = bedrock_agent.invoke_agent(**request_params)
+    #         logger.info(f'Agent response: {response}')
+    #         return response
+    #         #logger.info(f'agent response: {response} ----\n\n')
 
-    #         if DEBUG:
-    #             logger.info(f'Agent response: {response}')
-
+    #         _event_stream = response["completion"]
+            
+    #         chunk_count = 1
+    #         for event in _event_stream:
+    #             #print(f'\n\nChunk {chunk_count}: {event}')
+    #             chunk_count += 1
+    #             if "chunk" in event:
+    #                 _data = event["chunk"]["bytes"].decode("utf8")
+    #                 _agent_answer = self._make_fully_cited_answer(
+    #                     _data, event, False, 0)
+                    
+            
+    #         #print(f'_agent_answer: {_agent_answer}')
+            
+    #         # Process the response
+    #         #completion = response.get('completion', '')
     #         return response
 
     #     except Exception as e:
-    #         print(f"Error invoking agent: {str(e)}")
-    #         raise HTTPException(status_code=500, detail=f"Agent invoke error: {str(e)}")
+    #         print(f"Error retrieving from agents: {str(e)}")
+    #         raise
+
+    #     ###############
+    #     return response
+
+
+    def _invoke_agent(self, chat_request: ChatRequest, stream=False):
+        """Logic for invoking Bedrock agent."""
+        if DEBUG:
+            logger.info("BedrockAgents._invoke_agent: Raw request: " + chat_request.model_dump_json())
+        
+        # Fetch model metadata
+        model = self._supported_models.get(chat_request.model)
+        if not model:
+            raise HTTPException(status_code=400, detail=f"Model {chat_request.model} not recognized.")
+
+        logger.info(f"Resolved model metadata: {model}")
+        
+        # Ensure required metadata is present
+        if 'agent_id' not in model or 'alias_id' not in model:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Agent {chat_request.model} is missing required parameters: agent_id or alias_id."
+            )
+
+        try:
+            # Extract user query from the most recent user message
+            query = chat_request.messages[-1].content  # Safely access the latest message from the user
+
+            # Construct the payload for the Bedrock `invoke_agent` API
+            request_params = {
+                'agentId': model['agent_id'],        # Agent ID
+                'agentAliasId': model['alias_id'],  # Alias ID for the agent
+                'sessionId': 'unique-session-id',  # Use a session ID to maintain conversational context
+                'inputText': query                 # Input text for the agent
+            }
+
+            if DEBUG:
+                logger.info(f"Request parameters for agent invocation: {json.dumps(request_params)}")
+
+            # Invoke the agent via the Bedrock API
+            response = bedrock_agent.invoke_agent(**request_params)
+            
+            if DEBUG:
+                logger.info(f"Response from Bedrock agent: {response}")
+
+            # Return the raw agent response (you can further process this if needed).
+            return response
+
+        except Exception as e:
+            logger.error(f"Error invoking agent: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Agent invocation failed: {str(e)}")
     
     def _make_fully_cited_answer(
         self, orig_agent_answer, event, enable_trace=False, trace_level="none"):
