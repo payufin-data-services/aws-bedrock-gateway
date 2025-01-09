@@ -22,4 +22,4 @@ jobs:
         dockerfile: ./src/Dockerfile_ecs
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.LUNA_AWS_ACCESS_KEY }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.LUNA_AWS_SECRET_ACCESS_KEY }
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.LUNA_AWS_SECRET_ACCESS_KEY }}
