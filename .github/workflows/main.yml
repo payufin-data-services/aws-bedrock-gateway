@@ -19,6 +19,7 @@ jobs:
         image: bedrock-gateway
         tags: v1
         registry: 593537320251.dkr.ecr.ap-south-1.amazonaws.com
+        platform: linux/arm64
         dockerfile: ./src/Dockerfile_ecs
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.LUNA_AWS_ACCESS_KEY }}
