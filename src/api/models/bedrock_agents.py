@@ -45,6 +45,7 @@ AGENT_PREFIX = 'ag-'
 
 DEFAULT_KB_MODEL = 'anthropic.claude-3-haiku-20240307-v1:0'
 DEFAULT_KB_MODEL_ARN = f'arn:aws:bedrock:{AWS_REGION}::foundation-model/{DEFAULT_KB_MODEL}'
+NEW_CLAUDE_ARN = 'arn:aws:bedrock:ap-south-1:593537320251:inference-profile/apac.anthropic.claude-3-5-sonnet-20240620-v1:0'
 
 logger = logging.getLogger(__name__)
 
@@ -78,10 +79,18 @@ class BedrockAgents(BedrockModel):
 
 
     _supported_models = {
+           'apac.anthropic.claude-3-5-sonnet-20240620-v1:0': {
+            "system": True,
+            "multimodal": True,
+            "tool_call": True,
+            "stream_tool_call": True,
+            "arn": NEW_CLAUDE_ARN
+        }
+
         
     }
     
-    # get list of active knowledgebases
+    # get list of active knowledgebases 
     def get_kbs(self):
 
         bedrock_ag = boto3.client(
@@ -884,7 +893,7 @@ bedrock_format_messages=[
     #     Ref: https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_Converse.html
     #     """
     #     messages = self._parse_messages(chat_request)
-    #     system_prompts = self._parse_system_prompts(chat_request)
+    #     system_prompts = self._parse_system_prompts(chat_request
     #     # Base inference parameters.
     #     inference_config = {
     #         "temperature": chat_request.temperature,
