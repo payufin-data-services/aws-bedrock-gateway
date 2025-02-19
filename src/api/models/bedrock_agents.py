@@ -81,7 +81,7 @@ class BedrockAgents(BedrockModel):
         
     }
     
-    # get list of active knowledgebases
+    # get list of active knowledgebases 
     def get_kbs(self):
 
         bedrock_ag = boto3.client(
@@ -243,6 +243,15 @@ class BedrockAgents(BedrockModel):
         self.get_models()
         self.get_kbs()
         self.get_agents()
+
+        self._supported_models['deepseek-llm-r1-distill-qwen-7b'] = {
+        "system": True,  # or False, depending on your model's capabilities
+        "multimodal": False,  # set to True if the model supports multiple input modes
+        "tool_call": True,  # set this according to what your model supports
+        "stream_tool_call": False,  # set this accordingly
+        "model_id": 'deepseek-llm-r1-distill-qwen-7b',
+        "arn": 'arn:aws:sagemaker:ap-south-1:aws:hub-content/SageMakerPublicHub/Model/deepseek-llm-r1-distill-qwen-7b/1.0.0'
+    }
         return list(self._supported_models.keys())
 
     def validate(self, chat_request: ChatRequest):
